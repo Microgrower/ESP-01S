@@ -14,15 +14,6 @@ int onTime, offTime, hour_now, min_now, hour_on, min_on, hour_off, min_off;
 int timeOffset = 25200;
 int interval = onTime;
 String hour_on_Content, min_on_Content, hour_off_Content, min_off_Content, onContent, offContent, ssidContent, passContent, formattedDate, timeStamp, dayStamp, dayTime, onState;
-const char* PARAM_HOUR_ON = "input_hour_on";
-const char* PARAM_MIN_ON = "input_min_on";
-const char* PARAM_HOUR_OFF = "input_hour_off";
-const char* PARAM_MIN_OFF = "input_min_off";
-const char* PARAM_ON = "input_ON";
-const char* PARAM_OFF = "input_OFF";
-const char* PARAM_SSID = "input_ssid";
-const char* PARAM_PASSWORD = "input_password";
-const char* PARAM_STATE = "input_state";
 char ssid[24], password[32];
 const char index_loop[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML><html lang="ru"><head><meta charset="UTF-8">
@@ -207,7 +198,7 @@ void initWeb() {
     });
     Serial.println("loop");
   }
-  else if(!timer_state){
+  else if (!timer_state) {
     server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
       request->send_P(200, "text/html", index_timer, processor);
     });
@@ -219,56 +210,56 @@ void initWeb() {
   server.on("/get", HTTP_GET, [] (AsyncWebServerRequest * request) {
     String inputMessage;
     String inputParam;
-    if (request->hasParam(PARAM_ON)) {
-      inputMessage = request->getParam(PARAM_ON)->value();
-      inputParam = PARAM_ON;
+    if (request->hasParam("input_ON")) {
+      inputMessage = request->getParam("input_ON")->value();
+      inputParam = "input_ON";
       onTime = inputMessage.toInt() * 1000 * 60;
       inputMessage = String(inputMessage.toInt() * 1000 * 60);
       writeFile(SPIFFS, "/ontime", inputMessage.c_str());
     }
-    else if (request->hasParam(PARAM_OFF)) {
-      inputMessage = request->getParam(PARAM_OFF)->value();
-      inputParam = PARAM_OFF;
+    else if (request->hasParam("input_OFF")) {
+      inputMessage = request->getParam("input_OFF")->value();
+      inputParam = "input_OFF";
       offTime = inputMessage.toInt() * 1000 * 60;
       inputMessage = String(inputMessage.toInt() * 1000 * 60);
       writeFile(SPIFFS, "/offtime", inputMessage.c_str());
     }
-    else if (request->hasParam(PARAM_HOUR_ON)) {
-      inputMessage = request->getParam(PARAM_HOUR_ON)->value();
-      inputParam = PARAM_HOUR_ON;
+    else if (request->hasParam("input_hour_on")) {
+      inputMessage = request->getParam("input_hour_on")->value();
+      inputParam = "input_hour_on";
       hour_on = inputMessage.toInt();
       inputMessage = String(inputMessage.toInt());
       writeFile(SPIFFS, "/hour_on", inputMessage.c_str());
     }
-    else if (request->hasParam(PARAM_MIN_ON)) {
-      inputMessage = request->getParam(PARAM_MIN_ON)->value();
-      inputParam = PARAM_MIN_ON;
+    else if (request->hasParam("input_min_on")) {
+      inputMessage = request->getParam("input_min_on")->value();
+      inputParam = "input_min_on";
       min_on = inputMessage.toInt();
       inputMessage = String(inputMessage.toInt());
       writeFile(SPIFFS, "/min_on", inputMessage.c_str());
     }
-    else if (request->hasParam(PARAM_HOUR_OFF)) {
-      inputMessage = request->getParam(PARAM_HOUR_OFF)->value();
-      inputParam = PARAM_HOUR_OFF;
+    else if (request->hasParam("input_hour_off")) {
+      inputMessage = request->getParam("input_hour_off")->value();
+      inputParam = "input_hour_off";
       hour_off = inputMessage.toInt();
       inputMessage = String(inputMessage.toInt());
       writeFile(SPIFFS, "/hour_off", inputMessage.c_str());
     }
-    else if (request->hasParam(PARAM_MIN_OFF)) {
-      inputMessage = request->getParam(PARAM_MIN_OFF)->value();
-      inputParam = PARAM_MIN_OFF;
+    else if (request->hasParam("input_min_off")) {
+      inputMessage = request->getParam("input_min_off")->value();
+      inputParam = "input_min_off";
       min_off = inputMessage.toInt();
       inputMessage = String(inputMessage.toInt());
       writeFile(SPIFFS, "/min_off", inputMessage.c_str());
     }
-    else if (request->hasParam(PARAM_SSID)) {
-      inputMessage = request->getParam(PARAM_SSID)->value();
-      inputParam = PARAM_SSID;
+    else if (request->hasParam("input_ssid")) {
+      inputMessage = request->getParam("input_ssid")->value();
+      inputParam = "input_ssid";
       writeFile(SPIFFS, "/ssid", inputMessage.c_str());
     }
-    else if (request->hasParam(PARAM_PASSWORD)) {
-      inputMessage = request->getParam(PARAM_PASSWORD)->value();
-      inputParam = PARAM_PASSWORD;
+    else if (request->hasParam("input_password")) {
+      inputMessage = request->getParam("input_password")->value();
+      inputParam = "input_password";
       writeFile(SPIFFS, "/pass", inputMessage.c_str());
     }
     else {
