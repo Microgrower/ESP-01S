@@ -8,15 +8,12 @@
 #include <WiFiUdp.h>
 #define RELAY 2
 boolean RELAYstate = true;
+boolean timer_state = false;
 unsigned long previousMillis, currentMillis, timerMillis;
 int onTime, offTime, hour_now, min_now, hour_on, min_on, hour_off, min_off;
 int timeOffset = 25200;
 int interval = onTime;
-//int hour_on = 11;
-//int min_on = 23;
-//int hour_off;
-//int min_off;
-String hour_on_Content, min_on_Content, hour_off_Content, min_off_Content, onContent, offContent, ssidContent, passContent, formattedDate, timeStamp, dayStamp, dayTime;
+String hour_on_Content, min_on_Content, hour_off_Content, min_off_Content, onContent, offContent, ssidContent, passContent, formattedDate, timeStamp, dayStamp, dayTime, onState;
 const char* PARAM_HOUR_ON = "input_hour_on";
 const char* PARAM_MIN_ON = "input_min_on";
 const char* PARAM_HOUR_OFF = "input_hour_off";
@@ -25,8 +22,9 @@ const char* PARAM_ON = "input_ON";
 const char* PARAM_OFF = "input_OFF";
 const char* PARAM_SSID = "input_ssid";
 const char* PARAM_PASSWORD = "input_password";
+const char* PARAM_STATE = "input_state";
 char ssid[24], password[32];
-const char index_html[] PROGMEM = R"rawliteral(
+const char index_loop[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML><html lang="ru"><head><meta charset="UTF-8">
   <title>ESP Timer Input Form</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -39,17 +37,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     }
   </style>
   </head><body>
-  <h1>Главное меню железки</h1>
-  <h2>Настройки WiFi</h2>
-    <form action="/get">
-    Введите точку доступа: <input type="text" name="input_ssid">
-    <input type="submit" value="Тыкай!">
-  </form><br>
-  <form action="/get">
-    Введите пароль:<input type="text" name="input_password">
-    <input type="submit" value="Тыкай!">
-  </form><br>
-  <h2>Настройки циклического таймера</h2>
+  <h1>Меню циклического таймера</h1>
   <form action="/get">
     Время работы(в минутах): <input type="number" name="input_ON">
     <input type="submit" value="Тыкай!">
@@ -58,7 +46,43 @@ const char index_html[] PROGMEM = R"rawliteral(
     Время простоя (в минутах): <input type="number" name="input_OFF">
     <input type="submit" value="Тыкай!">
   </form><br>
-  <h2>Настройки таймера по времени</h2>
+  <h2>Настройки WiFi</h2>
+  <form action="/get">
+  </form><br>
+    <form action="/get">
+    Введите точку доступа: <input type="text" name="input_ssid">
+    <input type="submit" value="Тыкай!">
+  </form><br>
+  <form action="/get">
+    Введите пароль:<input type="text" name="input_password">
+    <input type="submit" value="Тыкай!">
+  </form><br>
+  <span class="time">Текущее время:</span> <span id="time">%time%</span>
+  </p>
+  <form action="/get">
+  </form><br>
+  <input name="input_state" type="button" value="Изменить режим" />
+</body></html>)rawliteral";
+const char index_timer[] PROGMEM = R"rawliteral(
+<!DOCTYPE HTML><html lang="ru"><head><meta charset="UTF-8">
+  <title>ESP Timer Input Form</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    html {
+     font-family: Arial;
+     display: inline-block;
+     margin: 0px auto;
+     text-align: center;
+    }
+  </style>
+  </head><body>
+  <h1>Меню таймера по времени</h1>
+  <p> 
+  <span class="time"></span> <span id="time">%time_on%</span>
+  </p> 
+  <p> 
+  <span class="time"></span> <span id="time">%time_off%</span>
+  </p>
   <form action="/get">
     Время включения часы: <input type="number" name="input_hour_on">
     <input type="submit" value="Тыкай!">
@@ -75,55 +99,37 @@ const char index_html[] PROGMEM = R"rawliteral(
     Время выключения минуты: <input type="number" name="input_min_off">
     <input type="submit" value="Тыкай!">    
   </form><br>
-  <p> 
-  <span class="time"></span> <span id="time">%time_on%</span>
-  </p> 
-  <p> 
-  <span class="time"></span> <span id="time">%time_off%</span>
-  </p>
+  <h2>Настройки WiFi</h2>
+    <form action="/get">
+    Введите точку доступа: <input type="text" name="input_ssid">
+    <input type="submit" value="Тыкай!">
+  </form><br>
+  <form action="/get">
+    Введите пароль:<input type="text" name="input_password">
+    <input type="submit" value="Тыкай!">
+  </form><br>
   <p> 
   <span class="time">Текущее время:</span> <span id="time">%time%</span>
   </p>
+  <form action="/get">
+  </form><br>
+  <input name="input_state" type="button" value="Изменить режим" />
 </body></html>)rawliteral";
 AsyncWebServer server(80);
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP);
 String processor(const String& var) {
-  if (var == "input_ssid") {
-    return readFile(SPIFFS, "/ssid");
-  }
-  else if (var == "time_on"){
+  if (var == "time_on") {
     String time_ons = "Время включения: " + String(hour_on) + "." + String(min_on) + "\n";
     return time_ons;
   }
-  else if (var == "time_off"){
+  else if (var == "time_off") {
     String time_offs = "Время выключения: " + String(hour_off) + "." + String(min_off) + "\n";
     return time_offs;
   }
   else if (var == "time") {
     getTime();
     return String(timeStamp);
-  }
-  else if (var == "input_password") {
-    return readFile(SPIFFS, "/pass");
-  }
-  else if (var == "input_ON") {
-    return readFile(SPIFFS, "/ontime");
-  }
-  else if (var == "input_OFF") {
-    return readFile(SPIFFS, "/offtime");
-  }
-  else if (var == "input_hour_on") {
-    return readFile(SPIFFS, "/hour_on");
-  }
-  else if (var == "input_min_on") {
-    return readFile(SPIFFS, "/min_on");
-  }
-  else if (var == "input_hour_off") {
-    return readFile(SPIFFS, "/hour_off");
-  }
-  else if (var == "input_min_off") {
-    return readFile(SPIFFS, "/min_off");
   }
   return String();
 }
@@ -195,9 +201,18 @@ void initWifi() {
   }
 }
 void initWeb() {
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
-    request->send_P(200, "text/html", index_html, processor);
-  });
+  if (timer_state) {
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
+      request->send_P(200, "text/html", index_loop, processor);
+    });
+    Serial.println("loop");
+  }
+  else if(!timer_state){
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
+      request->send_P(200, "text/html", index_timer, processor);
+    });
+    Serial.println("timer");
+  }
   server.on("/time", HTTP_GET, [](AsyncWebServerRequest * request) {
     request->send_P(200, "text/plain", String(dayStamp).c_str());
   });
@@ -207,15 +222,15 @@ void initWeb() {
     if (request->hasParam(PARAM_ON)) {
       inputMessage = request->getParam(PARAM_ON)->value();
       inputParam = PARAM_ON;
-      onTime = inputMessage.toInt() * 1000;
-      inputMessage = String(inputMessage.toInt() * 1000);
+      onTime = inputMessage.toInt() * 1000 * 60;
+      inputMessage = String(inputMessage.toInt() * 1000 * 60);
       writeFile(SPIFFS, "/ontime", inputMessage.c_str());
     }
     else if (request->hasParam(PARAM_OFF)) {
       inputMessage = request->getParam(PARAM_OFF)->value();
       inputParam = PARAM_OFF;
-      offTime = inputMessage.toInt() * 1000;
-      inputMessage = String(inputMessage.toInt() * 1000);
+      offTime = inputMessage.toInt() * 1000 * 60;
+      inputMessage = String(inputMessage.toInt() * 1000 * 60);
       writeFile(SPIFFS, "/offtime", inputMessage.c_str());
     }
     else if (request->hasParam(PARAM_HOUR_ON)) {
@@ -489,9 +504,35 @@ void setup() {
   initWifi();
   initWeb();
   print_conf();
+  if (timer_state) {
+    Serial.println("Таймер запущен в циклическом режиме");
+  }
+  else if (!timer_state) {
+    Serial.println("Таймер запущен в режиме по времени");
+  }
 }
 void loop() {
   AsyncElegantOTA.loop();
-  //  timer_loop();
-  timer_time_loop();
+  if (timer_state) {
+    timer_loop();
+  }
+  else if (!timer_state) {
+    timer_time_loop();
+  }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
